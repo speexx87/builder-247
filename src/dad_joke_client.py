@@ -1,98 +1,142 @@
-import requests
 import logging
+import requests
+from typing import Dict, List, Optional, Union
 
 class DadJokeClient:
     """
-    A client for fetching dad jokes from the icanhazdadjoke API.
+    A robust client for fetching dad jokes from the icanhazdadjoke API.
+
+    Attributes:
+        BASE_URL (str): Base URL for the icanhazdadjoke API
+        _logger (logging.Logger): Logger for tracking API interactions
     """
     BASE_URL = "https://icanhazdadjoke.com/"
 
-    def __init__(self, api_key=None, logger=None):
+    def __init__(
+        self, 
+        api_key: Optional[str] = None, 
+        logger: Optional[logging.Logger] = None
+    ):
         """
         Initialize the Dad Joke Client.
 
-        :param api_key: Optional API key for future use (currently not required by this API)
-        :param logger: Optional custom logger. If not provided, a default logger is created.
+        Args:
+            api_key (Optional[str]): Optional API key (currently unused)
+            logger (Optional[logging.Logger]): Custom logger for API interactions
         """
-        self.headers = {
+        self._headers = {
             "Accept": "application/json",
-            "User-Agent": "Prometheus Development Dad Joke Client (https://github.com/your-repo)"
+            "User-Agent": "Prometheus Dad Joke Client"
         }
         
         # Configure logging
-        self.logger = logger or logging.getLogger(__name__)
-        if not self.logger.handlers:
-            handler = logging.StreamHandler()
-            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-            handler.setFormatter(formatter)
-            self.logger.addHandler(handler)
-            self.logger.setLevel(logging.INFO)
+        self._logger = logger or self._setup_default_logger()
 
-    def get_random_joke(self):
+    def _setup_default_logger(self) -> logging.Logger:
         """
-        Fetch a random dad joke.
+        Set up a default logger if no custom logger is provided.
 
-        :return: A dictionary containing the joke details
-        :raises ConnectionError: If there's an issue connecting to the API
-        :raises ValueError: If the API response is invalid
+        Returns:
+            logging.Logger: Configured logger for the client
+        """
+        logger = logging.getLogger(__name__)
+        logger.setLevel(logging.INFO)
+        
+        # Create console handler only if no handlers exist
+        if not logger.handlers:
+            console_handler = logging.StreamHandler()
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            console_handler.setFormatter(formatter)
+            logger.addHandler(console_handler)
+        
+        return logger
+
+    def get_random_joke(self) -> Dict[str, Union[str, int]]:
+        """
+        Fetch a random dad joke from the API.
+
+        Returns:
+            Dict containing joke details with keys: 'id', 'joke', 'status'
+
+        Raises:
+            ConnectionError: If network issues prevent joke retrieval
+            ValueError: If API response is invalid
         """
         try:
-            self.logger.info(f"Fetching random dad joke from {self.BASE_URL}")
-            response = requests.get(self.BASE_URL, headers=self.headers)
-            response.raise_for_status()  # Raise an error for bad status codes
+            self._logger.info("Attempting to fetch random dad joke")
+            response = requests.get(
+                self.BASE_URL, 
+                headers=self._headers
+            )
+            response.raise_for_status()
             
             joke_data = response.json()
             joke_info = {
-                "id": joke_data.get("id"),
-                "joke": joke_data.get("joke"),
+                "id": joke_data.get("id", ""),
+                "joke": joke_data.get("joke", ""),
                 "status": response.status_code
             }
             
-            self.logger.info(f"Successfully fetched dad joke with ID: {joke_info['id']}")
+            self._logger.info(f"Successfully fetched dad joke (ID: {joke_info['id']})")
             return joke_info
+        
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to fetch dad joke: {str(e)}")
-            raise ConnectionError(f"Failed to fetch dad joke: {str(e)}")
-        except ValueError as e:
-            self.logger.error(f"Invalid API response: {str(e)}")
-            raise ValueError(f"Invalid API response: {str(e)}")
+            self._logger.error(f"Network error fetching dad joke: {e}")
+            raise ConnectionError(f"Failed to fetch dad joke: {e}")
+        
+        except (KeyError, ValueError) as e:
+            self._logger.error(f"Invalid API response: {e}")
+            raise ValueError(f"Invalid API response: {e}")
 
-    def search_jokes(self, term, limit=5):
+    def search_jokes(
+        self, 
+        term: str, 
+        limit: int = 5
+    ) -> List[Dict[str, str]]:
         """
-        Search for dad jokes containing a specific term.
+        Search for dad jokes matching a specific term.
 
-        :param term: Search term for jokes
-        :param limit: Maximum number of jokes to return (default: 5)
-        :return: A list of jokes matching the search term
-        :raises ConnectionError: If there's an issue connecting to the API
-        :raises ValueError: If the API response is invalid
+        Args:
+            term (str): Search term for jokes
+            limit (int, optional): Maximum number of jokes to return. Defaults to 5.
+
+        Returns:
+            List of jokes matching the search term
+
+        Raises:
+            ValueError: If search term is invalid
+            ConnectionError: If network issues prevent joke retrieval
         """
         if not term or not isinstance(term, str):
-            self.logger.error("Invalid search term: must be a non-empty string")
+            self._logger.error("Invalid search term provided")
             raise ValueError("Search term must be a non-empty string")
 
         try:
-            params = {
-                "term": term,
-                "limit": limit
-            }
-            self.logger.info(f"Searching dad jokes with term: '{term}', limit: {limit}")
-            response = requests.get(f"{self.BASE_URL}search", 
-                                    headers=self.headers, 
-                                    params=params)
+            params = {"term": term, "limit": limit}
+            self._logger.info(f"Searching jokes with term: '{term}', limit: {limit}")
+            
+            response = requests.get(
+                f"{self.BASE_URL}search", 
+                headers=self._headers,
+                params=params
+            )
             response.raise_for_status()
             
             search_data = response.json()
             jokes = [{
-                "id": joke.get("id"),
-                "joke": joke.get("joke")
+                "id": joke.get("id", ""),
+                "joke": joke.get("joke", "")
             } for joke in search_data.get("results", [])]
             
-            self.logger.info(f"Found {len(jokes)} jokes matching the search term")
+            self._logger.info(f"Found {len(jokes)} jokes matching search term")
             return jokes
+        
         except requests.exceptions.RequestException as e:
-            self.logger.error(f"Failed to search dad jokes: {str(e)}")
-            raise ConnectionError(f"Failed to search dad jokes: {str(e)}")
-        except ValueError as e:
-            self.logger.error(f"Invalid API response: {str(e)}")
-            raise ValueError(f"Invalid API response: {str(e)}")
+            self._logger.error(f"Network error searching jokes: {e}")
+            raise ConnectionError(f"Failed to search dad jokes: {e}")
+        
+        except (KeyError, ValueError) as e:
+            self._logger.error(f"Invalid API response: {e}")
+            raise ValueError(f"Invalid API response: {e}")
