@@ -1,7 +1,7 @@
-import pytest
 import logging
+import pytest
 import requests
-from unittest.mock import patch, Mock
+from unittest.mock import Mock, patch
 from src.dad_joke_client import DadJokeClient
 
 class MockResponse:
@@ -28,36 +28,36 @@ def dad_joke_client(mock_logger):
     return DadJokeClient(logger=mock_logger)
 
 def test_client_initialization(dad_joke_client):
+    """Test that the client is initialized correctly."""
     assert isinstance(dad_joke_client, DadJokeClient)
     assert dad_joke_client.BASE_URL == "https://icanhazdadjoke.com/"
-    assert dad_joke_client.logger is not None
+    assert dad_joke_client._logger is not None
 
-def test_logger_configuration(dad_joke_client):
-    """Test that logger is properly configured."""
-    assert dad_joke_client.logger.level == logging.INFO
-    assert len(dad_joke_client.logger.handlers) > 0
+def test_default_logger_setup():
+    """Test the default logger setup when no logger is provided."""
+    client = DadJokeClient()
+    assert client._logger is not None
+    assert len(client._logger.handlers) > 0
 
 @patch('requests.get')
-def test_get_random_joke_logging(mock_get, dad_joke_client, caplog):
-    """Test logging for random joke retrieval."""
+def test_get_random_joke_success(mock_get, dad_joke_client, caplog):
+    """Test successful random joke retrieval."""
     caplog.set_level(logging.INFO)
     
     mock_response_data = {
         "id": "abc123",
         "joke": "Why don't scientists trust atoms? Because they make up everything!",
-        "status": 200
     }
     mock_get.return_value = MockResponse(mock_response_data)
 
     joke = dad_joke_client.get_random_joke()
     
-    assert "Fetching random dad joke" in caplog.text
-    assert "Successfully fetched dad joke with ID: abc123" in caplog.text
     assert joke['id'] == "abc123"
+    assert "Successfully fetched dad joke" in caplog.text
 
 @patch('requests.get')
-def test_search_jokes_logging(mock_get, dad_joke_client, caplog):
-    """Test logging for joke search."""
+def test_search_jokes_success(mock_get, dad_joke_client, caplog):
+    """Test successful joke search."""
     caplog.set_level(logging.INFO)
     
     mock_response_data = {
@@ -70,27 +70,41 @@ def test_search_jokes_logging(mock_get, dad_joke_client, caplog):
 
     jokes = dad_joke_client.search_jokes("funny", limit=2)
     
-    assert "Searching dad jokes with term: 'funny'" in caplog.text
-    assert "Found 2 jokes matching the search term" in caplog.text
     assert len(jokes) == 2
+    assert "Found 2 jokes matching search term" in caplog.text
 
-def test_search_jokes_error_logging(dad_joke_client, caplog):
-    """Test logging for invalid search input."""
+def test_search_jokes_invalid_input(dad_joke_client, caplog):
+    """Test invalid search term handling."""
     caplog.set_level(logging.ERROR)
     
     with pytest.raises(ValueError, match="Search term must be a non-empty string"):
         dad_joke_client.search_jokes("")
     
-    assert "Invalid search term" in caplog.text
+    with pytest.raises(ValueError, match="Search term must be a non-empty string"):
+        dad_joke_client.search_jokes(None)
+    
+    assert "Invalid search term provided" in caplog.text
 
 @patch('requests.get')
-def test_get_random_joke_error_logging(mock_get, dad_joke_client, caplog):
-    """Test logging for connection errors."""
+def test_get_random_joke_network_error(mock_get, dad_joke_client, caplog):
+    """Test network error handling for random joke retrieval."""
     caplog.set_level(logging.ERROR)
     
-    mock_get.side_effect = requests.exceptions.ConnectionError("Connection failed")
+    mock_get.side_effect = requests.exceptions.ConnectionError("Network failure")
 
     with pytest.raises(ConnectionError):
         dad_joke_client.get_random_joke()
     
-    assert "Failed to fetch dad joke" in caplog.text
+    assert "Network error fetching dad joke" in caplog.text
+
+@patch('requests.get')
+def test_search_jokes_network_error(mock_get, dad_joke_client, caplog):
+    """Test network error handling for joke search."""
+    caplog.set_level(logging.ERROR)
+    
+    mock_get.side_effect = requests.exceptions.ConnectionError("Network failure")
+
+    with pytest.raises(ConnectionError):
+        dad_joke_client.search_jokes("test")
+    
+    assert "Network error searching jokes" in caplog.text
