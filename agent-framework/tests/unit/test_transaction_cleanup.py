@@ -1,7 +1,8 @@
 import pytest
 from datetime import datetime, timedelta, UTC
-from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, func
 from sqlalchemy.orm import sessionmaker, declarative_base
+from sqlalchemy.ext.declarative import declarative_base
 from prometheus_swarm.database.transaction_cleanup import cleanup_expired_transactions
 
 # Create a base for declarative class definitions
@@ -13,12 +14,12 @@ class Transaction(InMemoryBase):
 
     id = Column(Integer, primary_key=True, index=True)
     status = Column(String, nullable=False, default='pending')
-    created_at = Column(DateTime, nullable=False)
+    created_at = Column(DateTime(timezone=True), nullable=False)
 
 @pytest.fixture(scope="function")
 def test_engine():
     """Create an in-memory SQLite database for testing"""
-    engine = create_engine('sqlite:///:memory:')
+    engine = create_engine('sqlite:///:memory:', connect_args={'check_same_thread': False})
     InMemoryBase.metadata.create_all(engine)
     return engine
 
