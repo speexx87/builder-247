@@ -1,15 +1,25 @@
 import pytest
-from datetime import datetime, timedelta
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from prometheus_swarm.database.models import Base, Transaction
+from datetime import datetime, timedelta, UTC
+from sqlalchemy import create_engine, Column, Integer, String, DateTime
+from sqlalchemy.orm import sessionmaker, declarative_base
 from prometheus_swarm.database.transaction_cleanup import cleanup_expired_transactions
+
+# Create a base for declarative class definitions
+InMemoryBase = declarative_base()
+
+class Transaction(InMemoryBase):
+    """Transaction model for in-memory testing"""
+    __tablename__ = 'transactions'
+
+    id = Column(Integer, primary_key=True, index=True)
+    status = Column(String, nullable=False, default='pending')
+    created_at = Column(DateTime, nullable=False)
 
 @pytest.fixture(scope="function")
 def test_engine():
     """Create an in-memory SQLite database for testing"""
     engine = create_engine('sqlite:///:memory:')
-    Base.metadata.create_all(engine)
+    InMemoryBase.metadata.create_all(engine)
     return engine
 
 @pytest.fixture(scope="function")
@@ -23,7 +33,7 @@ def test_session(test_engine):
 def test_cleanup_expired_transactions(test_session):
     """Test cleaning up expired transactions"""
     # Create test transactions
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     
     # Add an expired incomplete transaction
     expired_transaction = Transaction(
@@ -69,7 +79,7 @@ def test_cleanup_expired_transactions(test_session):
 
 def test_cleanup_no_expired_transactions(test_session):
     """Test cleaning up when no transactions are expired"""
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     
     # Add recent transactions
     recent_transactions = [
@@ -99,7 +109,7 @@ def test_cleanup_no_expired_transactions(test_session):
 
 def test_cleanup_with_custom_expiration(test_session):
     """Test cleaning up with a custom expiration time"""
-    current_time = datetime.utcnow()
+    current_time = datetime.now(UTC)
     
     # Create test transactions
     expired_transaction = Transaction(
