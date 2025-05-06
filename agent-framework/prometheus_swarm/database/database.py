@@ -23,4 +23,17 @@ def initialize_database():
     """Initialize database tables."""
     Base.metadata.create_all(engine)
 
-# Rest of the existing methods remain the same...
+@contextmanager
+def get_session():
+    """Context manager for database sessions."""
+    session = get_db()
+    try:
+        yield session
+        session.commit()
+    except Exception:
+        session.rollback()
+        raise
+    finally:
+        session.close()
+
+# Rest of the methods remain the same...
