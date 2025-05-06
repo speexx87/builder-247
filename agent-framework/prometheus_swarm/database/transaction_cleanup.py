@@ -19,7 +19,7 @@ def cleanup_expired_transactions(expiration_hours=24):
         session = SessionLocal()
 
         # Calculate the expiration timestamp
-        expiration_time = datetime.datetime.utcnow() - datetime.timedelta(hours=expiration_hours)
+        expiration_time = datetime.datetime.now(datetime.UTC) - datetime.timedelta(hours=expiration_hours)
 
         # Find and delete expired transactions
         expired_transactions = session.query(Transaction).filter(
