@@ -19,3 +19,5 @@ colorama>=0.4.6
 pymongo>=4.11.0
 PyNaCl>=1.5.0
 psutil
+-e prometheus-client
+psutil

@@ -117,8 +117,7 @@ class PerformanceMetrics:
                     'total': psutil.disk_usage('/').total,
                     'used': psutil.disk_usage('/').used,
                     'percent': psutil.disk_usage('/').percent
-                },
-                'metrics': cls.export_metrics()
+                }
             }
         except Exception as e:
             logging.error(f"Error retrieving system metrics: {e}")
@@ -132,11 +131,10 @@ class PerformanceMetrics:
         Returns:
             str: Metrics in Prometheus text format
         """
-        from io import BytesIO
-        output = BytesIO()
         try:
-            prometheus_client.write_to_textfile(output, cls._metrics_registry)
-            return output.getvalue().decode('utf-8')
+            from prometheus_client import generate_latest
+            metrics_str = generate_latest(cls._metrics_registry).decode('utf-8')
+            return metrics_str
         except Exception as e:
             logging.error(f"Error exporting metrics: {e}")
             return ""
